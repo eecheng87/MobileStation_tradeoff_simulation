@@ -17,7 +17,6 @@ typedef struct{
     int pold[4]; // store p old id 0~3
     int en_num;
     int dir;
-    int exist_t;
     /*  0: up
         1: right
         2: down
@@ -34,7 +33,7 @@ double poffset1 = 0;
 double poffset2 = 0;
 double poffset3 = 0;
 double poffset4 = 0;
-int handOffPolicy(vector<car>&,vector<vector<int> >,int);
+int handOffPolicy(vector<car>&,vector<vector<int> >,int,int);
 
 int main(){
     vector<car> carv;
@@ -60,42 +59,22 @@ int main(){
     int poli3_handoff_num = 0;
     int poli4_handoff_num = 0;
     float poiP = exp(-LAMBDA)*LAMBDA;
-    //　file manipulation
-	ofstream ifso1;
-    ofstream ifso2;
-    ofstream ifso3;
-    ofstream ifso4;
-	ifso1.open("policy1.txt",ios::out|ios::trunc);
-    ifso2.open("policy2.txt",ios::out|ios::trunc);
-    ifso3.open("policy3.txt",ios::out|ios::trunc);
-    ifso4.open("policy4.txt",ios::out|ios::trunc);
 
     srand(time(NULL));
+    for(int xx=10;xx<40;xx++){
+    poli1_handoff_num = 0;
     while(curtime<TIME_LIMIT){
-
         geneCar(carv,entry,poiP);
         moveCar(carv,corner);
         checkBound(carv);
-        poli1_handoff_num += handOffPolicy(carv,base,1);
-        poli2_handoff_num += handOffPolicy(carv,base,2);
-        poli3_handoff_num += handOffPolicy(carv,base,3);
-        poli4_handoff_num += handOffPolicy(carv,base,4);
+        poli1_handoff_num += handOffPolicy(carv,base,1,xx);
         curtime++;
-
-        ifso1<<poli1_handoff_num<<endl;
-        ifso2<<poli2_handoff_num<<endl;
-        ifso3<<poli3_handoff_num<<endl;
-        ifso4<<poli4_handoff_num<<endl;
     }
-    // cout<<carv.size()<<endl;
-    ifso1.close();
-    ifso2.close();
-    ifso3.close();
-    ifso4.close();
-    cout<<"Average P in policy 1 is: "<<(double)AVG_P+poffset1/TIME_LIMIT<<" dbm"<<endl;
-    cout<<"Average P in policy 2 is: "<<(double)AVG_P+poffset2/TIME_LIMIT<<" dbm"<<endl;
-    cout<<"Average P in policy 3 is: "<<(double)AVG_P+poffset3/TIME_LIMIT<<" dbm"<<endl;
-    cout<<"Average P in policy 4 is: "<<(double)AVG_P+poffset4/TIME_LIMIT<<" dbm"<<endl;
+        cout<<xx<<": "<<poli1_handoff_num<<endl;
+        carv.clear();
+        curtime = 0;
+    }
+
     return 0;
 }
 float dist(float x1,float y1,float x2,float y2){
@@ -106,7 +85,7 @@ float getP(float firstmeter,float distance){
     return firstmeter-20*log10(distance-1);
 }
 
-int handOffPolicy(vector<car>&ref_car,vector<vector<int> >base,int policy){
+int handOffPolicy(vector<car>&ref_car,vector<vector<int> >base,int policy,int xx){
     float wold; // quantum of p old
     float curp = -100000;
     int curi; // new index of base
@@ -114,14 +93,15 @@ int handOffPolicy(vector<car>&ref_car,vector<vector<int> >base,int policy){
     float x1,x2,y1,y2; // x1 y1 for car's position; x2 y2 for base's position
     double localoff = 0;
     if(policy==1){
+        float tmp_old_3;
         for(int i = 0; i < ref_car.size();++i){
             curi = -1;
             x1 = ref_car[i].x;
             y1 = ref_car[i].y;
-            //cout<<ref_car[i].pold[0]<<endl;
+
             x2 = base[ref_car[i].pold[0]][0];
             y2 = base[ref_car[i].pold[0]][1];
-            wold = getP(-60,dist(x1,y1,x2,y2));
+            tmp_old_3 = wold = getP(-60,dist(x1,y1,x2,y2));
             // calculate average index
             localoff += wold - AVG_P;
             for(int j = 0; j < base.size(); ++j){
@@ -135,111 +115,13 @@ int handOffPolicy(vector<car>&ref_car,vector<vector<int> >base,int policy){
                 }
             }
             // update handoff number
-            if(curi>=0){
+            if(ref_car[i].pold[0]!=curi&&curi>=0&&(tmp_old_3+xx<wold)){
                 // handoff
                 handoffnum++;
                 ref_car[i].pold[0] = curi;
             }
         }
-        if(ref_car.size())
-            poffset1 += localoff/ref_car.size();
-    }else if(policy==2)
-    {
-        float tmp_old;
-        for(int i = 0; i < ref_car.size();++i){
-            curi = -1;
-            x1 = ref_car[i].x;
-            y1 = ref_car[i].y;
-
-            x2 = base[ref_car[i].pold[1]][0];
-            y2 = base[ref_car[i].pold[1]][1];
-            tmp_old = wold = getP(-60,dist(x1,y1,x2,y2));
-            // calculate average index
-            localoff += wold - AVG_P;
-            for(int j = 0; j < base.size(); ++j){
-                if(j==ref_car[i].pold[1])
-                    continue;
-                x2 = base[j][0];
-                y2 = base[j][1];
-                if(getP(-60,dist(x1,y1,x2,y2))>wold){
-                    wold = getP(-60,dist(x1,y1,x2,y2));
-                    curi = j;
-                }
-            }
-            // update handoff number
-            if(ref_car[i].pold[1]!=curi&&curi>=0&&tmp_old<-110&&tmp_old>PMIN){
-                // handoff
-                handoffnum++;
-                ref_car[i].pold[1] = curi;
-            }
-        }
-        if(ref_car.size())
-            poffset2 += localoff/ref_car.size();
-    }else if(policy==3){
-        float tmp_old_3;
-        for(int i = 0; i < ref_car.size();++i){
-            curi = -1;
-            x1 = ref_car[i].x;
-            y1 = ref_car[i].y;
-
-            x2 = base[ref_car[i].pold[2]][0];
-            y2 = base[ref_car[i].pold[2]][1];
-            tmp_old_3 = wold = getP(-60,dist(x1,y1,x2,y2));
-            // calculate average index
-            localoff += wold - AVG_P;
-            for(int j = 0; j < base.size(); ++j){
-                if(j==ref_car[i].pold[2])
-                    continue;
-                x2 = base[j][0];
-                y2 = base[j][1];
-                if(getP(-60,dist(x1,y1,x2,y2))>wold){
-                    wold = getP(-60,dist(x1,y1,x2,y2));
-                    curi = j;
-                }
-            }
-            // update handoff number
-            if(ref_car[i].pold[2]!=curi&&curi>=0&&(tmp_old_3+5<wold)&&tmp_old_3>PMIN){
-                // handoff
-                handoffnum++;
-                ref_car[i].pold[2] = curi;
-            }
-        }
-        if(ref_car.size())
-            poffset3 += localoff/ref_car.size();
-    }else if(policy==4){
-       float tmp_old_4;
-        for(int i = 0; i < ref_car.size();++i){
-            curi = -1;
-            x1 = ref_car[i].x;
-            y1 = ref_car[i].y;
-
-            x2 = base[ref_car[i].pold[3]][0];
-            y2 = base[ref_car[i].pold[3]][1];
-            tmp_old_4 = wold = getP(-60,dist(x1,y1,x2,y2));
-            // calculate average index
-            localoff += wold - AVG_P;
-            for(int j = 0; j < base.size(); ++j){
-                if(j==ref_car[i].pold[3])
-                    continue;
-                x2 = base[j][0];
-                y2 = base[j][1];
-                if(getP(-60,dist(x1,y1,x2,y2))>wold){
-                    wold = getP(-60,dist(x1,y1,x2,y2));
-                    curi = j;
-                }
-            }
-            // update handoff number
-            if(ref_car[i].pold[3]!=curi&&curi>=0&&(tmp_old_4+20<wold)&&tmp_old_4>PMIN&&ref_car[i].exist_t>500){
-                // handoff
-                handoffnum++;
-                ref_car[i].pold[3] = curi;
-                ref_car[i].exist_t = 0;
-            }
-        }
-        if(ref_car.size())
-            poffset4 += localoff/ref_car.size();
     }
-
     return handoffnum;
 }
 void checkBound(vector<car>&ref_car){
@@ -264,7 +146,6 @@ void moveCar(vector<car>&ref_car,vector<vector<int> >corner){
         direction = ref_car[i].dir;
         ref_car[i].x += dir_factor[direction][0]*v;
         ref_car[i].y += dir_factor[direction][1]*v;
-        ref_car[i].exist_t++;
         // check whether change direction
         // four corner
         if(ref_car[i].x == 0 && ref_car[i].y == 0){
@@ -293,7 +174,7 @@ void moveCar(vector<car>&ref_car,vector<vector<int> >corner){
         }
         // cross road
         for(int j = 0; j < corner.size(); ++j){
-            if(abs(ref_car[i].x-(float)corner[j][0])<1 && abs(ref_car[i].y-(float)corner[j][1])<1){
+            if(abs(ref_car[i].x-(float)corner[j][0])<2 && abs(ref_car[i].y-(float)corner[j][1])<2){
 
                 p = (float)rand()/RAND_MAX;
                 //cout<<"change direction "<<p<<endl;
@@ -330,7 +211,7 @@ void geneCar(vector<car>&ref_car,vector<vector <int> >entry,float poip){
             pold = 3;
         if(p<=poip){
             // generate car
-            car tmpcar{(float)entry[i][0],(float)entry[i][1],{pold,pold,pold,pold},i,entry[i][2],0};
+            car tmpcar{(float)entry[i][0],(float)entry[i][1],{pold,pold,pold,pold},i,entry[i][2]};
             //car tmpcar{(float)entry[10][0],(float)entry[10][1],0,i,3};
             ref_car.push_back(tmpcar);
             n++;
