@@ -330,7 +330,16 @@ void geneCar(vector<car>&ref_car,vector<vector <int> >entry,float poip){
             pold = 3;
         if(p<=poip){
             // generate car
-            car tmpcar{(float)entry[i][0],(float)entry[i][1],{pold,pold,pold,pold},i,entry[i][2],0};
+            p = (float)rand()/RAND_MAX;
+            int first_dir;
+            if(p<=0.5)
+                first_dir = entry[i][2];
+            else if(p<=0.83333) // turn right
+                first_dir = (entry[i][2]+1)%4;
+            else // turn left
+                first_dir = (entry[i][2]+3)%4;
+
+            car tmpcar{(float)entry[i][0],(float)entry[i][1],{pold,pold,pold,pold},i,first_dir,0};
             //car tmpcar{(float)entry[10][0],(float)entry[10][1],0,i,3};
             ref_car.push_back(tmpcar);
             n++;

@@ -1,0 +1,5 @@
+Average P in policy 1 is: -114.692 dbm
+Average P in policy 2 is: -114.692 dbm
+Average P in policy 3 is: -114.92 dbm
+Average P in policy 4 is: -119.326 dbm
+
